@@ -1,5 +1,4 @@
 const board = document.getElementById('board');
-const turnIndicator = document.getElementById('turn-indicator');
 
 let initialBoard = [
     ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
@@ -17,6 +16,9 @@ const pieceMap = {
     'R': '\u2656', 'N': '\u2658', 'B': '\u2657', 'Q': '\u2655', 'K': '\u2654', 'P': '\u2659'
 };
 
+let selectedPiece = null;
+let selectedSquare = null;
+
 function renderBoard(boardState) {
     board.innerHTML = '';
     for (let row = 0; row < 8; row++) {
@@ -31,10 +33,12 @@ function renderBoard(boardState) {
                 pieceElem.className = 'piece';
                 pieceElem.textContent = pieceMap[piece];
                 pieceElem.draggable = true;
+                pieceElem.addEventListener('click', onPieceClick);
                 pieceElem.addEventListener('dragstart', onDragStart);
                 pieceElem.addEventListener('dragend', onDragEnd);
                 square.appendChild(pieceElem);
             }
+            square.addEventListener('click', onSquareClick);
             square.addEventListener('dragover', onDragOver);
             square.addEventListener('drop', onDrop);
             board.appendChild(square);
@@ -42,17 +46,21 @@ function renderBoard(boardState) {
     }
 }
 
-let selectedPiece = null;
-let selectedSquare = null;
-
 function onDragStart(event) {
-    selectedPiece = event.target;
-    selectedSquare = selectedPiece.parentElement;
+    const pieceElem = event.target;
+    const square = pieceElem.parentElement;
+    const row = parseInt(square.dataset.row);
+    const col = parseInt(square.dataset.col);
+
+    selectedPiece = initialBoard[row][col];
+    selectedSquare = square;
+    highlightSquare(square);
+
+    event.dataTransfer.setData('text/plain', `${row},${col}`);
 }
 
 function onDragEnd(event) {
-    selectedPiece = null;
-    selectedSquare = null;
+    clearHighlights();
 }
 
 function onDragOver(event) {
@@ -61,12 +69,86 @@ function onDragOver(event) {
 
 function onDrop(event) {
     event.preventDefault();
-    const square = event.currentTarget;
-    if (selectedPiece) {
-        square.appendChild(selectedPiece);
-        selectedPiece = null;
-        selectedSquare = null;
+    const [fromRow, fromCol] = event.dataTransfer.getData('text/plain').split(',').map(Number);
+    const toRow = parseInt(event.currentTarget.dataset.row);
+    const toCol = parseInt(event.currentTarget.dataset.col);
+
+    // Check if the drop is on the same square
+    if (fromRow === toRow && fromCol === toCol) {
+        return;
+    }
+
+    if (initialBoard[fromRow][fromCol]) {
+        initialBoard[toRow][toCol] = initialBoard[fromRow][fromCol];
+        initialBoard[fromRow][fromCol] = '';
+        renderBoard(initialBoard);
     }
 }
 
-renderBoard(initialBoard)
+function onPieceClick(event) {
+    const pieceElem = event.target;
+    const square = pieceElem.parentElement;
+    const row = parseInt(square.dataset.row);
+    const col = parseInt(square.dataset.col);
+
+    if (selectedPiece && selectedSquare !== square) {
+        const fromRow = parseInt(selectedSquare.dataset.row);
+        const fromCol = parseInt(selectedSquare.dataset.col);
+
+        // Check if the piece on the target square is of the opposite color
+        if (isOppositeColor(selectedPiece, initialBoard[row][col])) {
+            initialBoard[row][col] = selectedPiece;
+            initialBoard[fromRow][fromCol] = '';
+            selectedPiece = null;
+            selectedSquare = null;
+            clearHighlights();
+            renderBoard(initialBoard);
+        } else {
+            selectedPiece = initialBoard[row][col];
+            selectedSquare = square;
+            clearHighlights();
+            highlightSquare(square);
+        }
+    } else {
+        selectedPiece = initialBoard[row][col];
+        selectedSquare = square;
+        clearHighlights();
+        highlightSquare(square);
+    }
+}
+
+function onSquareClick(event) {
+    const square = event.currentTarget;
+    const row = parseInt(square.dataset.row);
+    const col = parseInt(square.dataset.col);
+
+    if (selectedPiece && selectedSquare !== square) {
+        const fromRow = parseInt(selectedSquare.dataset.row);
+        const fromCol = parseInt(selectedSquare.dataset.col);
+        initialBoard[row][col] = selectedPiece;
+        initialBoard[fromRow][fromCol] = '';
+        selectedPiece = null;
+        selectedSquare = null;
+        clearHighlights();
+        renderBoard(initialBoard);
+    }
+}
+
+function highlightSquare(square) {
+    square.classList.add('highlight');
+}
+
+function clearHighlights() {
+    const highlightedSquares = document.querySelectorAll('.square.highlight');
+    highlightedSquares.forEach(square => {
+        square.classList.remove('highlight');
+    });
+}
+
+function isOppositeColor(piece1, piece2) {
+    if (!piece1 || !piece2) return false;
+    return (piece1 === piece1.toUpperCase() && piece2 === piece2.toLowerCase()) ||
+        (piece1 === piece1.toLowerCase() && piece2 === piece2.toUpperCase());
+}
+
+renderBoard(initialBoard);
