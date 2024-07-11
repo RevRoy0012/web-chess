@@ -1,4 +1,6 @@
 const board = document.getElementById('board');
+const capturedWhiteContainer = document.getElementById('captured-white');
+const capturedBlackContainer = document.getElementById('captured-black');
 
 let initialBoard = [
     ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
@@ -36,6 +38,8 @@ function renderBoard(boardState) {
                 pieceElem.addEventListener('click', onPieceClick);
                 pieceElem.addEventListener('dragstart', onDragStart);
                 pieceElem.addEventListener('dragend', onDragEnd);
+                pieceElem.addEventListener('mouseenter', onPieceHover);
+                pieceElem.addEventListener('mouseleave', onPieceLeave);
                 square.appendChild(pieceElem);
             }
             square.addEventListener('click', onSquareClick);
@@ -44,6 +48,18 @@ function renderBoard(boardState) {
             board.appendChild(square);
         }
     }
+}
+
+function onPieceHover(event) {
+    const pieceElem = event.target;
+    const square = pieceElem.parentElement;
+    square.classList.add('hover');
+}
+
+function onPieceLeave(event) {
+    const pieceElem = event.target;
+    const square = pieceElem.parentElement;
+    square.classList.remove('hover');
 }
 
 function onDragStart(event) {
@@ -73,12 +89,14 @@ function onDrop(event) {
     const toRow = parseInt(event.currentTarget.dataset.row);
     const toCol = parseInt(event.currentTarget.dataset.col);
 
-    // Check if the drop is on the same square
     if (fromRow === toRow && fromCol === toCol) {
         return;
     }
 
-    if (initialBoard[fromRow][fromCol]) {
+    if (initialBoard[fromRow][fromCol] && !isSameColor(initialBoard[fromRow][fromCol], initialBoard[toRow][toCol])) {
+        if (initialBoard[toRow][toCol]) {
+            capturePiece(initialBoard[toRow][toCol]);
+        }
         initialBoard[toRow][toCol] = initialBoard[fromRow][fromCol];
         initialBoard[fromRow][fromCol] = '';
         renderBoard(initialBoard);
@@ -95,8 +113,10 @@ function onPieceClick(event) {
         const fromRow = parseInt(selectedSquare.dataset.row);
         const fromCol = parseInt(selectedSquare.dataset.col);
 
-        // Check if the piece on the target square is of the opposite color
-        if (isOppositeColor(selectedPiece, initialBoard[row][col])) {
+        if (!isSameColor(selectedPiece, initialBoard[row][col])) {
+            if (initialBoard[row][col]) {
+                capturePiece(initialBoard[row][col]);
+            }
             initialBoard[row][col] = selectedPiece;
             initialBoard[fromRow][fromCol] = '';
             selectedPiece = null;
@@ -125,12 +145,43 @@ function onSquareClick(event) {
     if (selectedPiece && selectedSquare !== square) {
         const fromRow = parseInt(selectedSquare.dataset.row);
         const fromCol = parseInt(selectedSquare.dataset.col);
-        initialBoard[row][col] = selectedPiece;
-        initialBoard[fromRow][fromCol] = '';
-        selectedPiece = null;
-        selectedSquare = null;
-        clearHighlights();
-        renderBoard(initialBoard);
+
+        if (!isSameColor(selectedPiece, initialBoard[row][col])) {
+            if (initialBoard[row][col]) {
+                capturePiece(initialBoard[row][col]);
+            }
+            initialBoard[row][col] = selectedPiece;
+            initialBoard[fromRow][fromCol] = '';
+            selectedPiece = null;
+            selectedSquare = null;
+            clearHighlights();
+            renderBoard(initialBoard);
+        }
+    }
+}
+
+function capturePiece(piece) {
+    const capturedPieceElem = document.createElement('div');
+    capturedPieceElem.className = 'captured';
+    capturedPieceElem.textContent = pieceMap[piece];
+    capturedPieceElem.addEventListener('click', () => {
+        // Add back to the board if clicked
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                if (initialBoard[row][col] === '') {
+                    initialBoard[row][col] = piece;
+                    renderBoard(initialBoard);
+                    capturedPieceElem.remove();
+                    return;
+                }
+            }
+        }
+    });
+
+    if (piece === piece.toUpperCase()) {
+        capturedWhiteContainer.appendChild(capturedPieceElem);
+    } else {
+        capturedBlackContainer.appendChild(capturedPieceElem);
     }
 }
 
@@ -139,16 +190,16 @@ function highlightSquare(square) {
 }
 
 function clearHighlights() {
-    const highlightedSquares = document.querySelectorAll('.square.highlight');
+    const highlightedSquares = document.querySelectorAll('.square.highlight, .square.hover');
     highlightedSquares.forEach(square => {
-        square.classList.remove('highlight');
+        square.classList.remove('highlight', 'hover');
     });
 }
 
-function isOppositeColor(piece1, piece2) {
+function isSameColor(piece1, piece2) {
     if (!piece1 || !piece2) return false;
-    return (piece1 === piece1.toUpperCase() && piece2 === piece2.toLowerCase()) ||
-        (piece1 === piece1.toLowerCase() && piece2 === piece2.toUpperCase());
+    return (piece1 === piece1.toUpperCase() && piece2 === piece2.toUpperCase()) ||
+        (piece1 === piece1.toLowerCase() && piece2 === piece2.toLowerCase());
 }
 
 renderBoard(initialBoard);
